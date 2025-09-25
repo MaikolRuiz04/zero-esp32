@@ -1,4 +1,4 @@
-#include "image_display.h"
+#include "features/image_display.h"
 #include <Arduino.h>
 #include <TJpg_Decoder.h>
 #include <FS.h>

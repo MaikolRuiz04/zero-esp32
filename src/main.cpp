@@ -1,10 +1,10 @@
-
-
 #include <Arduino.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
-#include "countdown_clock.h"
+#include "ui/taskbar.h"
+#include "ui/timer_display.h"
+#include "ui/circle_progress.h"
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -12,14 +12,95 @@
 #define TFT_SCK  18
 #define TFT_MISO 19
 #define TFT_MOSI 23
+#define EN_BUTTON 0 // GPIO0 for example, change if needed
 
 Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
+
+Mode currentMode = FOCUS;
+int focusSeconds = 25 * 60;
+int breakSeconds = 5 * 60;
+int timerSeconds = focusSeconds;
+bool lastButtonState = HIGH;
+
+void updateUI() {
+  // Only refresh timer numbers
+  int minutes = timerSeconds / 60;
+  int seconds = timerSeconds % 60;
+  drawTimer(tft, minutes, seconds);
+}
 
 void setup() {
   SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI);
   tft.begin();
   tft.setRotation(1);
-  showClock(tft);
+  pinMode(EN_BUTTON, INPUT_PULLUP);
+  // Draw static UI elements once
+  tft.fillScreen(ILI9341_BLACK);
+  drawTaskbar(tft, currentMode);
+    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+    drawCircleProgress(tft, percent, ILI9341_RED, 190);
+  // Draw timer
+  int minutes = timerSeconds / 60;
+  int seconds = timerSeconds % 60;
+  drawTimer(tft, minutes, seconds);
 }
 
-void loop() {}
+void loop() {
+  // Button handling (toggle mode)
+  bool buttonState = digitalRead(EN_BUTTON);
+  if (buttonState == LOW && lastButtonState == HIGH) {
+    // Button pressed
+    if (currentMode == FOCUS) {
+      currentMode = BREAK;
+      timerSeconds = breakSeconds;
+    } else {
+      currentMode = FOCUS;
+      timerSeconds = focusSeconds;
+    }
+    // Redraw static UI elements on mode switch
+    tft.fillScreen(ILI9341_BLACK);
+    drawTaskbar(tft, currentMode);
+  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+      drawCircleProgress(tft, percent, ILI9341_RED, 190);
+    // Draw timer
+    int minutes = timerSeconds / 60;
+    int seconds = timerSeconds % 60;
+    drawTimer(tft, minutes, seconds);
+    delay(300); // debounce
+  }
+  lastButtonState = buttonState;
+
+  // Timer countdown
+  static unsigned long lastTick = 0;
+  static unsigned long lastProgressUpdate = 0;
+  if (millis() - lastTick >= 1000) {
+    if (timerSeconds > 0) {
+      timerSeconds--;
+      updateUI();
+    } else {
+      // Switch mode automatically when timer runs out
+      if (currentMode == FOCUS) {
+        currentMode = BREAK;
+        timerSeconds = breakSeconds;
+      } else {
+        currentMode = FOCUS;
+        timerSeconds = focusSeconds;
+      }
+      // Redraw static UI elements on mode switch
+      tft.fillScreen(ILI9341_BLACK);
+      drawTaskbar(tft, currentMode);
+      float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+      drawCircleProgress(tft, percent, ILI9341_RED, 190);
+      int minutes = timerSeconds / 60;
+      int seconds = timerSeconds % 60;
+      drawTimer(tft, minutes, seconds);
+    }
+    lastTick = millis();
+  }
+  // Update progress bar every 5 seconds (do NOT redraw timer here)
+  if (millis() - lastProgressUpdate >= 5000) {
+    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+    drawCircleProgress(tft, percent, ILI9341_RED, 190);
+    lastProgressUpdate = millis();
+  }
+}
