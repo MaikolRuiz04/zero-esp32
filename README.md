@@ -1,5 +1,8 @@
 
+
 # ESP32 Pomodoro Timer Project
+
+**Version:** 0.1
 
 This project is a modular Pomodoro timer for the ESP32 with an ILI9341 TFT display, built using PlatformIO. The code is organized for maintainability and easy feature expansion.
 
