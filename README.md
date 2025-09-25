@@ -17,8 +17,7 @@ It is designed to help manage time efficiently at your desk, providing a simple 
 
 ## License
 
-MIT License (or specify your preferred license)
-
+MIT License 
 ## Author
 
 Maikol Ruiz
