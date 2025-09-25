@@ -3,4 +3,5 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.data/pic1.jpg
+data/*
+!data/pic1.jpg
