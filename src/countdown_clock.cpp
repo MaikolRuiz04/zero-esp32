@@ -1,18 +1,7 @@
+#include "countdown_clock.h"
 #include <Arduino.h>
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
 
-#define TFT_CS   5
-#define TFT_DC   21
-#define TFT_RST  22
-#define TFT_SCK  18
-#define TFT_MISO 19
-#define TFT_MOSI 23
-
-Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
-
-void showClock() {
+void showClock(Adafruit_ILI9341 &tft) {
   int minutes = 25;
   int seconds = 0;
   tft.fillScreen(ILI9341_BLACK);

@@ -1,27 +1,18 @@
+#include "image_display.h"
 #include <Arduino.h>
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
 #include <TJpg_Decoder.h>
 #include <FS.h>
 #include <SPIFFS.h>
 
-#define TFT_CS   5
-#define TFT_DC   21
-#define TFT_RST  22
-#define TFT_SCK  18
-#define TFT_MISO 19
-#define TFT_MOSI 23
-
-Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
-
 // Callback for TJpg_Decoder to draw pixels
+static Adafruit_ILI9341* tft_ptr = nullptr;
 bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
-  tft.drawRGBBitmap(x, y, bitmap, w, h);
+  if (tft_ptr) tft_ptr->drawRGBBitmap(x, y, bitmap, w, h);
   return 1;
 }
 
-void showImage() {
+void showImage(Adafruit_ILI9341 &tft) {
+  tft_ptr = &tft;
   // Mount SPIFFS
   if (!SPIFFS.begin(true)) {
     Serial.println("SPIFFS mount failed");
@@ -45,4 +36,5 @@ void showImage() {
   } else {
     Serial.println("pic.jpg NOT found!");
   }
+  tft_ptr = nullptr;
 }
