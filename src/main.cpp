@@ -1,3 +1,4 @@
+#include "ui_design.h"
 #include <Arduino.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -37,8 +38,9 @@ void setup() {
   // Draw static UI elements once
   tft.fillScreen(ILI9341_BLACK);
   drawTaskbar(tft, currentMode);
-    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-    drawCircleProgress(tft, percent, ILI9341_RED, 190);
+  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+  drawCircleProgress(tft, percent, arcColor, 180);
   // Draw timer
   int minutes = timerSeconds / 60;
   int seconds = timerSeconds % 60;
@@ -61,7 +63,8 @@ void loop() {
     tft.fillScreen(ILI9341_BLACK);
     drawTaskbar(tft, currentMode);
   float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-      drawCircleProgress(tft, percent, ILI9341_RED, 190);
+  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+    drawCircleProgress(tft, percent, arcColor, 180);
     // Draw timer
     int minutes = timerSeconds / 60;
     int seconds = timerSeconds % 60;
@@ -99,8 +102,9 @@ void loop() {
   }
   // Update progress bar every 5 seconds (do NOT redraw timer here)
   if (millis() - lastProgressUpdate >= 5000) {
-    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-    drawCircleProgress(tft, percent, ILI9341_RED, 190);
+  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+  drawCircleProgress(tft, percent, arcColor, 180);
     lastProgressUpdate = millis();
   }
 }
