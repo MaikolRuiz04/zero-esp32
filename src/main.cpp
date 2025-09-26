@@ -27,7 +27,7 @@ void updateUI() {
   // Only refresh timer numbers
   int minutes = timerSeconds / 60;
   int seconds = timerSeconds % 60;
-  drawTimer(tft, minutes, seconds);
+  drawTimerOptimized(tft, minutes, seconds);
 }
 
 void setup() {
@@ -40,7 +40,7 @@ void setup() {
   drawTaskbar(tft, currentMode);
   float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
   uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-  drawCircleProgress(tft, percent, arcColor, 180);
+  drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
   // Draw timer
   int minutes = timerSeconds / 60;
   int seconds = timerSeconds % 60;
@@ -62,9 +62,11 @@ void loop() {
     // Redraw static UI elements on mode switch
     tft.fillScreen(ILI9341_BLACK);
     drawTaskbar(tft, currentMode);
+    resetCircleProgressState();
+  resetTimerDisplayState();
   float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
   uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-    drawCircleProgress(tft, percent, arcColor, 180);
+  drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
     // Draw timer
     int minutes = timerSeconds / 60;
     int seconds = timerSeconds % 60;
@@ -75,11 +77,23 @@ void loop() {
 
   // Timer countdown
   static unsigned long lastTick = 0;
-  static unsigned long lastProgressUpdate = 0;
+  static float lastProgressPercent = -1.0f; // for smooth delta drawing
   if (millis() - lastTick >= 1000) {
     if (timerSeconds > 0) {
       timerSeconds--;
       updateUI();
+#if SMOOTH_PROGRESS
+      // Draw incremental arc every second (smooth mode)
+      int totalForMode = (currentMode == FOCUS ? focusSeconds : breakSeconds);
+      float percent = 1.0f - ((float)timerSeconds / totalForMode);
+      uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+      if (lastProgressPercent < 0) {
+        drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+      } else {
+        drawCircleProgressDelta(tft, lastProgressPercent, percent, arcColor, PROGRESS_DIAMETER);
+      }
+      lastProgressPercent = percent;
+#endif
     } else {
       // Switch mode automatically when timer runs out
       if (currentMode == FOCUS) {
@@ -92,19 +106,31 @@ void loop() {
       // Redraw static UI elements on mode switch
       tft.fillScreen(ILI9341_BLACK);
       drawTaskbar(tft, currentMode);
-      float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-      drawCircleProgress(tft, percent, ILI9341_RED, 190);
+      resetCircleProgressState();
+  resetTimerDisplayState();
+    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+    uint16_t arcColor2 = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+    drawCircleProgress(tft, percent, arcColor2, PROGRESS_DIAMETER);
+    lastProgressPercent = percent;
       int minutes = timerSeconds / 60;
       int seconds = timerSeconds % 60;
       drawTimer(tft, minutes, seconds);
     }
     lastTick = millis();
   }
-  // Update progress bar every 5 seconds (do NOT redraw timer here)
-  if (millis() - lastProgressUpdate >= 5000) {
-  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-  drawCircleProgress(tft, percent, arcColor, 180);
-    lastProgressUpdate = millis();
+#if !SMOOTH_PROGRESS
+  // Segmented update mode
+  int totalForMode = (currentMode == FOCUS ? focusSeconds : breakSeconds);
+  int segmentLengthSec = totalForMode / PROGRESS_SEGMENTS;
+  if (segmentLengthSec < 1) segmentLengthSec = 1;
+  static int lastSegmentIndex = -1;
+  int elapsed = totalForMode - timerSeconds;
+  int currentSegmentIndex = elapsed / segmentLengthSec;
+  if (currentSegmentIndex != lastSegmentIndex) {
+    float percent = 1.0f - ((float)timerSeconds / totalForMode);
+    uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+    drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+    lastSegmentIndex = currentSegmentIndex;
   }
+#endif
 }

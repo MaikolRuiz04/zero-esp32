@@ -11,6 +11,7 @@ This project is a modular Pomodoro timer for the ESP32 with an ILI9341 TFT displ
 - **Modes**: Automatically switches between FOCUS and BREAK modes when the timer runs out.
 - **Visuals**: Black background, smooth circular progress bar, and centered timer below the taskbar.
 - **Customizable**: Progress bar diameter and UI layout can be easily adjusted.
+ - **Performance**: Progress ring only fully clears when mode resets, reducing redraw overhead.
 
 ## Code Structure
 - `src/main.cpp`: Main logic, handles timer, mode switching, and UI updates.
@@ -31,6 +32,7 @@ This project is a modular Pomodoro timer for the ESP32 with an ILI9341 TFT displ
 ## Customization
 - Change timer durations in `main.cpp` (`focusSeconds`, `breakSeconds`).
 - Adjust progress bar diameter in `drawCircleProgress` calls.
+ - Change `PROGRESS_DIAMETER` or `PROGRESS_THICKNESS` in `ui_design.h` for ring sizing.
 - UI layout and colors can be modified in the respective UI files.
 
 ## Getting Started

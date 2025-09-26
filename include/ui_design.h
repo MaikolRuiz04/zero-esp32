@@ -25,3 +25,17 @@
 #define SLOT_W(screenW) ((screenW) - 12)
 #define SLOT_H 36
 #define SLOT_R 14
+
+// --- Circular Progress ---
+// Unified diameter for progress ring (was inconsistently 180 / 190 in code)
+#define PROGRESS_DIAMETER 180
+// Thickness of the circular progress ring (in pixels)
+#define PROGRESS_THICKNESS 8
+// Number of discrete segments the progress ring updates through per mode
+#define PROGRESS_SEGMENTS 25
+// Angle step (degrees) used when drawing arc; smaller -> smoother (performance tradeoff)
+#define PROGRESS_ANGLE_STEP 0.35f
+
+// Enable smooth incremental progress updates (draw only the newly added arc each second)
+// Set to 0 to fall back to segmented updates (PROGRESS_SEGMENTS)
+#define SMOOTH_PROGRESS 1
