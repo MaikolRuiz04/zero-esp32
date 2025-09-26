@@ -1,11 +1,42 @@
+Project test suites live here.
 
-This directory is intended for PlatformIO Test Runner and project tests.
+Environments:
+1. Host logic tests (`native_test`): run fast on your PC, no hardware, cover pure functions in `logic_core.*` (and future pure modules).
+2. On‑device tests (`esp32dev`): compiled/flashed to the ESP32 using Unity's Arduino harness.
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Quick commands:
+* Fast host tests: `make test-fast` (PlatformIO: `platformio test -e native_test`)
+* Device tests:    `make test` (PlatformIO: `platformio test -e esp32dev`)
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+File naming conventions:
+* Host test source: `test_<topic>_native.cpp` (contains its own `main()` / `RUN_TEST` calls as needed).
+* Device test source: `test_<topic>.cpp` (uses Arduino `setup()` + `loop()` pattern with Unity macros).
+
+Adding a new pure logic test:
+1. Put new functions in a header/cpp pair that does NOT rely on Arduino headers (follow `logic_core` pattern).
+2. Create `test/test_<name>_native.cpp` including that header.
+3. Write focused assertions – prefer edge boundaries first (0, limits, rollover) then representative mid‑range values.
+4. Run `make test-fast` for sub‑second feedback.
+
+Adding a device integration test:
+1. Use `#ifdef ARDUINO` guards if sharing code with host tests.
+2. Keep hardware interactions minimal—favor verifying logic outcomes or state transitions rather than timing‑sensitive graphics.
+3. For UI elements, prefer indirect checks (e.g., internal state or counters) over pixel dumps (not yet implemented).
+
+Design principles:
+* Fast feedback: keep the majority of logic testable on host.
+* Determinism: avoid real `delay()` in tests; simulate time via adjustable counters where possible.
+* Isolation: each test should assert one narrow behavior; create new tests instead of large multi‑assert monoliths when scenarios diverge.
+* Readability > cleverness: explicit expected values over computed ones (unless they clarify intent).
+
+Planned enhancements:
+* Buzzer timing simulation helper to test non‑blocking pattern durations.
+* Segment boundary tests for progress ring edge rounding.
+* Format stress tests (e.g., > 99 minutes handling strategy if extended).
+
+Unity tips:
+* Use `TEST_ASSERT_EQUAL_INT(expected, actual);`
+* For approximate comparisons (future floating calculations), wrap a helper macro for tolerance.
+* Group thematically related asserts inside a single test only when failure context remains clear.
+
+If a test starts needing hardware delays to be reliable, consider extracting the time progression into an injectable function or mock.

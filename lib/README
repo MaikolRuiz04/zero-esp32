@@ -1,46 +1,37 @@
+Private / optional component libraries.
 
-This directory is intended for project specific (private) libraries.
-PlatformIO will compile them to static libraries and link into the executable file.
+Currently unused – the core code lives in `src/` (UI modules + features) and shared headers in `include/`.
+Add a library here only when a feature becomes large enough to justify its own boundary or you want to optionally compile / exclude it.
 
-The source code of each library should be placed in a separate directory
-("lib/your_library_name/[Code]").
+When to create a lib module:
+1. Feature grows beyond a couple of small files (≈ >300 lines) and has internal helpers not needed elsewhere.
+2. You want clearer ownership / encapsulation (e.g., future persistence layer, analytics, settings manager).
+3. You need different build flags (`library.json`) for just that component.
 
-For example, see the structure of the following example libraries `Foo` and `Bar`:
+Recommended structure:
+lib/
+  settings_store/
+    src/
+      settings_store.cpp
+      settings_store_internal.cpp
+    include/ (only if external headers needed)
+      settings_store.h
+    library.json (if custom flags / defines required)
 
-|--lib
-|  |
-|  |--Bar
-|  |  |--docs
-|  |  |--examples
-|  |  |--src
-|  |     |- Bar.c
-|  |     |- Bar.h
-|  |  |- library.json (optional. for custom build options, etc) https://docs.platformio.org/page/librarymanager/config.html
-|  |
-|  |--Foo
-|  |  |- Foo.c
-|  |  |- Foo.h
-|  |
-|  |- README --> THIS FILE
-|
-|- platformio.ini
-|--src
-   |- main.c
+Guidelines:
+* Keep public API minimal – expose one primary header named after the library.
+* Avoid Arduino or display includes in public headers unless absolutely required; push hardware specifics into `.cpp`.
+* Use `library.json` only when you need custom compile flags; keep global config in `platformio.ini` otherwise.
+* Provide a tiny usage comment at the top of the public header.
+* If logic can be host‑tested, isolate pure functions so they can be moved (or mirrored) near `logic_core` patterns.
 
-Example contents of `src/main.c` using Foo and Bar:
-```
-#include <Foo.h>
-#include <Bar.h>
+Testing a new lib:
+* For pure logic: add a host test file (`test/test_<name>_native.cpp`) and include the header.
+* For hardware interactions: add or extend an on‑device Unity test.
 
-int main (void)
-{
-  ...
-}
+Naming conventions:
+* Directory: lowercase_with_underscores
+* Public header: same as directory (`settings_store.h`)
+* Internal headers (if any): suffix `_internal.h` and keep inside the lib directory (not `include/`).
 
-```
-
-The PlatformIO Library Dependency Finder will find automatically dependent
-libraries by scanning project source files.
-
-More information about PlatformIO Library Dependency Finder
-- https://docs.platformio.org/page/librarymanager/ldf.html
+If this folder stays empty, that's fine—it means current modularization in `src/` is still sufficient.

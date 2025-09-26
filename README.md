@@ -1,47 +1,120 @@
 
 
-# ESP32 Pomodoro Timer Project
+# ESP32 Pomodoro Timer
 
-**Version:** 0.13
+**Version:** 0.15
 
-This project is a modular Pomodoro timer for the ESP32 with an ILI9341 TFT display, built using PlatformIO. The code is organized for maintainability and easy feature expansion.
+Modular Pomodoro / focus timer for ESP32 + ILI9341 TFT, designed for smooth incremental UI updates, quick iteration via host (native) logic tests, and clean separation between pure logic and hardware‑dependent code.
 
 ## Features
-- **Modular UI**: Taskbar, timer display, and circular progress bar are separate components in `src/ui/`.
-- **Modes**: Automatically switches between FOCUS and BREAK modes when the timer runs out.
-- **Visuals**: Black background, smooth circular progress bar, and centered timer below the taskbar.
-- **Customizable**: Progress bar diameter and UI layout can be easily adjusted.
- - **Performance**: Progress ring only fully clears when mode resets, reducing redraw overhead.
+| Area | Highlights |
+|------|------------|
+| UI Architecture | Taskbar, timer, circular progress are isolated modules under `src/ui/` |
+| Modes | Auto cycle FOCUS ↔ BREAK when timer hits zero |
+| Rendering | Smooth delta ring or segmented fallback; per‑digit timer repaint to minimize draw time |
+| Performance | Avoids full ring redraw except on mode reset; minimal overdraw strategy |
+| Customization | Ring diameter/thickness + colors centralized in `ui_design.h` |
+| Audio | Non‑blocking buzzer state machine: single beep (FOCUS), double beep (BREAK) |
+| Logic Core | Pure functions (`logic_core`) unit tested on host—fast feedback without flashing |
+| Testing | Two environments: on‑device (`esp32dev`) and host (`native_test`) |
+| Debounce | Non‑blocking button debounce (timestamp based) |
+| Maintainability | Constants centralization + separation of pure logic and side‑effects |
 
 ## Code Structure
-- `src/main.cpp`: Main logic, handles timer, mode switching, and UI updates.
-- `src/ui/taskbar.cpp/h`: Renders the top taskbar and highlights the current mode with a centered underline.
-- `src/ui/timer_display.cpp/h`: Draws the timer numbers, centered below the taskbar.
-- `src/ui/circle_progress.cpp/h`: Draws the circular progress bar, updating every 5 seconds.
-- `include/`: For shared header files.
-- `lib/`: For custom libraries (if needed).
-- `test/`: For unit tests.
+| Path | Purpose |
+|------|---------|
+| `src/main.cpp` | Runtime orchestration: mode state machine, UI refresh cadence, buzzer triggers |
+| `src/ui/taskbar.*` | Top bar & active mode underline |
+| `src/ui/timer_display.*` | Optimized mm:ss drawing (only changed digits) |
+| `src/ui/circle_progress.*` | Smooth or segmented circular progress ring (delta drawing) |
+| `src/features/buzzer.*` | Non‑blocking active buzzer patterns (single / double beep) |
+| `src/logic_core.*` | Pure logic (percent, segment index, formatting, clamping) for host tests |
+| `include/` | Shared public headers (constants, cross‑module interfaces) |
+| `lib/` | (Optional) Private libraries if feature sets grow large |
+| `test/` | Unity tests (device + host) |
 
-## How It Works
-1. On startup, the display shows the taskbar, timer, and progress bar.
-2. The timer counts down every second, updating only the numbers for a smooth effect.
-3. The progress bar updates every 5 seconds, showing elapsed time for the current mode.
-4. When the timer reaches zero, the mode switches (FOCUS <-> BREAK), and the UI updates automatically.
-5. The underline below the taskbar is centered and sized to match the active mode word.
+## Runtime Flow
+1. Startup: screen cleared, taskbar + baseline ring + initial timer drawn.
+2. Every second: timer decremented, digits diff‑redrawn.
+3. Progress ring: updated via delta arc (smooth) or whole segment (segmented mode).
+4. Mode end: auto switch, ring + digits reset, audio cue emitted.
+5. Buzzer service polled every loop to finish patterns exactly without blocking.
 
 ## Customization
-- Change timer durations in `main.cpp` (`focusSeconds`, `breakSeconds`).
-- Adjust progress bar diameter in `drawCircleProgress` calls.
- - Change `PROGRESS_DIAMETER` or `PROGRESS_THICKNESS` in `ui_design.h` for ring sizing.
-- UI layout and colors can be modified in the respective UI files.
+| What | Where |
+|------|-------|
+| Focus / Break lengths | `focusSeconds`, `breakSeconds` in `main.cpp` |
+| Ring diameter & thickness | `PROGRESS_DIAMETER`, `PROGRESS_THICKNESS` in `ui_design.h` |
+| Smooth vs segmented | Define / undefine `SMOOTH_PROGRESS` in `ui_design.h` |
+| Colors / Palette | `ui_design.h` (central color list) |
+| Buzzer pattern durations | Constants near top of `main.cpp` (can be extracted) |
+| Font / digit rendering | `timer_display.*` |
+| Progress delta algorithm | `circle_progress.cpp` (delta vs full) |
 
 ## Getting Started
-1. Install PlatformIO and required libraries (Adafruit GFX, Adafruit ILI9341).
-2. Connect your ESP32 and TFT display as per pin definitions in `main.cpp`.
-3. Build and upload the firmware using PlatformIO.
+1. Install PlatformIO (VS Code extension or CLI).
+2. (Optional) Ensure `platformio` + `make` are on PATH.
+3. Wire TFT & buzzer per pin constants inside `main.cpp` (adjust if needed).
+4. Fast host logic test (no hardware):
+	```bash
+	make test-fast
+	# or
+	platformio test -e native_test
+	```
+5. Full firmware build & upload (no tests):
+	```bash
+	make build
+	make upload
+	# or
+	platformio run -e esp32dev --target upload
+	```
+6. On‑device tests (flashes, then runs Unity):
+	```bash
+	make test
+	# or
+	platformio test -e esp32dev
+	```
+7. Serial monitor:
+	```bash
+	make monitor
+	```
 
-## Contributing
-Feel free to expand features, improve UI, or add new modes. The modular structure makes it easy to add new components or change existing ones.
+## Configuration Highlights
+| Toggle | How |
+|--------|-----|
+| Smooth ring drawing | Set `#define SMOOTH_PROGRESS 1` (or 0 for segmented) |
+| Ring geometry | Edit `PROGRESS_DIAMETER`, `PROGRESS_THICKNESS` |
+| Session lengths | Edit `focusSeconds`, `breakSeconds` in `main.cpp` |
+| Audio timing | Adjust buzzer macros / constants (`BUZZER_BEEP_MS`, etc.) |
+| Color accents | Edit color defines in `ui_design.h` |
+
+## Makefile Targets
+| Target | Action |
+|--------|--------|
+| `make build` | Compile firmware (esp32dev) |
+| `make upload` | Build + upload to board |
+| `make monitor` | Open serial monitor |
+| `make test` | Flash + run Unity tests on device |
+| `make test-fast` | Run host logic tests (`native_test`) |
+| `make clean` | Remove build artifacts |
+| `make ci` | Build + on-device test pipeline |
+
+## Future Ideas
+- Pause / resume & mid-session skip
+- Visual warning arc for last N seconds
+- Configurable long break cycle (e.g., every 4th focus)
+- SPIFFS persistence of user preferences
+- Buzzer “pre-finish” ticking pattern
+- Additional test coverage (buzzer timing, degenerate ring percentages)
+
+## Testing Strategy
+| Layer | Method |
+|-------|--------|
+| Pure logic (`logic_core`) | Host (`native_test`) environment – milliseconds feedback |
+| Integrated UI / timing | On-device tests (Unity) or manual observation |
+| Buzzer timing accuracy | Extend with simulated time helper (planned) |
+
+When adding new pure functions, put them in `logic_core.*` or another host-safe module so they can be validated without flashing.
 
 ---
 Created by MaikolRuiz04

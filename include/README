@@ -1,37 +1,24 @@
 
-This directory is intended for project header files.
+Project public headers live here.
 
-A header file is a file containing C declarations and macro definitions
-to be shared between several project source files. You request the use of a
-header file in your project source file (C, C++, etc) located in `src` folder
-by including it, with the C preprocessing directive `#include'.
+Guidelines:
+1. Keep hardware-neutral logic (e.g. percent/time calculations) in a pure header + matching `.cpp` (like `logic_core.h`) so it can be host‑tested.
+2. Avoid including heavy graphics or Arduino headers inside other headers; include them only in `.cpp` files when possible to reduce compile times.
+3. Group related constants into thematic headers (e.g. `ui_design.h`) instead of scattering `#define` values across modules.
+4. Prefer `constexpr` or `enum class` over raw `#define` for typed constants when not needed by preprocessor conditionals.
+5. If a header introduces a dependency that is optional (e.g., an experimental feature), hide it behind a feature macro guard.
 
-```src/main.c
+Suggested layout patterns:
+- ui_design.h   : Colors, dimensions, feature toggles
+- logic_core.h  : Pure functions used by both tests and runtime
+- version.h     : (Optional) Semantic version or build metadata
 
-#include "header.h"
-
-int main (void)
-{
- ...
-}
+Include hygiene:
+```
+#pragma once
+#include <stdint.h>
+// local headers after STL/system
+#include "ui_design.h"
 ```
 
-Including a header file produces the same results as copying the header file
-into each source file that needs it. Such copying would be time-consuming
-and error-prone. With a header file, the related declarations appear
-in only one place. If they need to be changed, they can be changed in one
-place, and programs that include the header file will automatically use the
-new version when next recompiled. The header file eliminates the labor of
-finding and changing all the copies as well as the risk that a failure to
-find one copy will result in inconsistencies within a program.
-
-In C, the convention is to give header files names that end with `.h'.
-
-Read more about using header files in official GCC documentation:
-
-* Include Syntax
-* Include Operation
-* Once-Only Headers
-* Computed Includes
-
-https://gcc.gnu.org/onlinedocs/cpp/Header-Files.html
+When adding new modules, keep the interface minimal; export only what the rest of the system truly needs.

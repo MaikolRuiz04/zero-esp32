@@ -37,6 +37,7 @@ void updateUI() {
   drawTimerOptimized(tft, minutes, seconds);
 }
 
+#ifndef UNIT_TEST
 void setup() {
   SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI);
   tft.begin();
@@ -159,3 +160,4 @@ void loop() {
   // Non-blocking buzzer service
   buzzerService();
 }
+#endif // UNIT_TEST
