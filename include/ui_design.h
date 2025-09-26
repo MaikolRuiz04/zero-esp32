@@ -39,3 +39,42 @@
 // Enable smooth incremental progress updates (draw only the newly added arc each second)
 // Set to 0 to fall back to segmented updates (PROGRESS_SEGMENTS)
 #define SMOOTH_PROGRESS 1
+
+// --- Rotary Encoder Tuning ---
+// Debounce between accepted rotation steps (ms)
+#define ENCODER_CFG_STEP_DEBOUNCE_MS 2
+// Minimum gap between distinct presses (ms)
+#define ENCODER_CFG_PRESS_DEBOUNCE_MS 180
+// Stable LOW duration required to qualify as press (ms) (raise slightly for bounce tolerance)
+#define ENCODER_CFG_PRESS_STABLE_MS 40
+// Set to 1 to invert perceived rotation direction (if wiring orientation feels reversed)
+#define ENCODER_CFG_INVERT_DIRECTION 0
+// Require DT stability verification (extra noise filtering)
+#define ENCODER_CFG_REQUIRE_STABLE_DT 1
+// Milliseconds to wait after rotation edge before confirming (0 disables)
+#define ENCODER_CFG_ROTATE_STABILITY_MS 1
+// Suppress interpreting a press for this window after a confirmed rotation (ms) (reduced to improve fast rotate+press combos)
+#define ENCODER_CFG_SUPPRESS_PRESS_AFTER_ROTATE_MS 140
+// Ignore rotation edges while a press candidate (potential click) is being evaluated
+#define ENCODER_CFG_SUPPRESS_ROTATE_DURING_PRESS 1
+
+// Enable detailed serial logging from rotary encoder module (0 = off, 1 = on)
+#ifndef ENCODER_DEBUG
+#define ENCODER_DEBUG 0
+#endif
+
+// Minimal diagnostic mode: set to 1 to drastically reduce SPI drawing during runtime
+// (only a small heartbeat pixel). Helps determine if heavy redraws trigger white screen.
+#ifndef MINIMAL_DIAG
+#define MINIMAL_DIAG 0
+#endif
+
+// Limit SPI clock for display to reduce peak current / signal integrity stress (Hz)
+#ifndef TFT_SPI_HZ
+#define TFT_SPI_HZ 10000000UL // further reduced for signal/power margin
+#endif
+
+// Display watchdog: if no successful UI draw for this many ms, attempt re-init
+#ifndef DISPLAY_WATCHDOG_MS
+#define DISPLAY_WATCHDOG_MS 4000
+#endif
