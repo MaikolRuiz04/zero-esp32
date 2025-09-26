@@ -27,6 +27,8 @@ int focusSeconds = 25 * 60;
 int breakSeconds = 5 * 60;
 int timerSeconds = focusSeconds;
 bool lastButtonState = HIGH;
+unsigned long lastButtonEventMs = 0; // for non-blocking debounce
+const unsigned long BUTTON_DEBOUNCE_MS = 300;
 
 void updateUI() {
   // Only refresh timer numbers
@@ -57,33 +59,37 @@ void loop() {
   // Button handling (toggle mode)
   bool buttonState = digitalRead(EN_BUTTON);
   if (buttonState == LOW && lastButtonState == HIGH) {
-    // Button pressed
-    if (currentMode == FOCUS) {
-      currentMode = BREAK;
-      timerSeconds = breakSeconds;
-    } else {
-      currentMode = FOCUS;
-      timerSeconds = focusSeconds;
+    unsigned long now = millis();
+    if (now - lastButtonEventMs >= BUTTON_DEBOUNCE_MS) {
+      // Button accepted (debounced)
+      lastButtonEventMs = now;
+      if (currentMode == FOCUS) {
+        currentMode = BREAK;
+        timerSeconds = breakSeconds;
+      } else {
+        currentMode = FOCUS;
+        timerSeconds = focusSeconds;
+      }
+      // Redraw static UI elements on mode switch
+      tft.fillScreen(ILI9341_BLACK);
+      drawTaskbar(tft, currentMode);
+      resetCircleProgressState();
+      resetTimerDisplayState();
+      float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
+      uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+      drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+      // Draw timer
+      int minutes = timerSeconds / 60;
+      int seconds = timerSeconds % 60;
+      drawTimer(tft, minutes, seconds);
+      // Audio cue: entering FOCUS = single short beep, entering BREAK = double beep
+      if (currentMode == FOCUS) {
+        buzzerBeep(150, BUZZER_DUTY_PERCENT); // single concise confirmation
+      } else {
+        buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT); // break indicator
+      }
+      // No blocking delay; buzzerService will run to stop beep exactly on time
     }
-    // Redraw static UI elements on mode switch
-    tft.fillScreen(ILI9341_BLACK);
-    drawTaskbar(tft, currentMode);
-    resetCircleProgressState();
-  resetTimerDisplayState();
-  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-  drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
-    // Draw timer
-    int minutes = timerSeconds / 60;
-    int seconds = timerSeconds % 60;
-    drawTimer(tft, minutes, seconds);
-    // Audio cue: entering FOCUS = single short beep, entering BREAK = double beep
-    if (currentMode == FOCUS) {
-      buzzerBeep(150, BUZZER_DUTY_PERCENT); // single concise confirmation
-    } else {
-      buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT); // break indicator
-    }
-    delay(300); // debounce
   }
   lastButtonState = buttonState;
 
