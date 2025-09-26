@@ -6,6 +6,11 @@
 #include "ui/taskbar.h"
 #include "ui/timer_display.h"
 #include "ui/circle_progress.h"
+#include "features/buzzer.h"
+
+// Default beep configuration (can move to a config header later)
+#define BUZZER_BEEP_MS 1000
+#define BUZZER_DUTY_PERCENT 50
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -35,6 +40,7 @@ void setup() {
   tft.begin();
   tft.setRotation(1);
   pinMode(EN_BUTTON, INPUT_PULLUP);
+  buzzerSetup();
   // Draw static UI elements once
   tft.fillScreen(ILI9341_BLACK);
   drawTaskbar(tft, currentMode);
@@ -71,6 +77,12 @@ void loop() {
     int minutes = timerSeconds / 60;
     int seconds = timerSeconds % 60;
     drawTimer(tft, minutes, seconds);
+    // Audio cue: entering FOCUS = single short beep, entering BREAK = double beep
+    if (currentMode == FOCUS) {
+      buzzerBeep(150, BUZZER_DUTY_PERCENT); // single concise confirmation
+    } else {
+      buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT); // break indicator
+    }
     delay(300); // debounce
   }
   lastButtonState = buttonState;
@@ -112,6 +124,11 @@ void loop() {
     uint16_t arcColor2 = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
     drawCircleProgress(tft, percent, arcColor2, PROGRESS_DIAMETER);
     lastProgressPercent = percent;
+      if (currentMode == FOCUS) {
+        buzzerBeep(150, BUZZER_DUTY_PERCENT);
+      } else {
+        buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT);
+      }
       int minutes = timerSeconds / 60;
       int seconds = timerSeconds % 60;
       drawTimer(tft, minutes, seconds);
@@ -133,4 +150,6 @@ void loop() {
     lastSegmentIndex = currentSegmentIndex;
   }
 #endif
+  // Non-blocking buzzer service
+  buzzerService();
 }
