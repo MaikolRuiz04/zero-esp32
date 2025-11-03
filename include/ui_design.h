@@ -1,12 +1,30 @@
 #pragma once
 // UI Design Constants
 
-// --- Color Palette (Academia) ---
-#define COLOR_FOCUS 0x2105   // Dark green (#142624)
-#define COLOR_BREAK 0x4222   // Deep brown (#592C1C)
-#define COLOR_SLOT  0x8C69   // Taupe (#8C7968)
-#define COLOR_ACCENT_OCHRE 0xA63F // Ochre (#A6783F)
-#define COLOR_ACCENT_DUSTY_RED 0x8425 // Dusty red (#8C4B45)
+// --- Color Palette (Updated) ---
+// Source hex codes: EFEEEE, 95D5E6, DBA9BB, B3A589, A53F2B, 2A2D34 converted to RGB565
+// Conversion method: 565 = (R>>3)<<11 | (G>>2)<<5 | (B>>3)
+// Mappings:
+//   Anti-flash white (#EFEEEE) -> 0xEFBD
+//   Non Photo blue (#95D5E6)   -> 0x96BC
+//   Orchid pink (#DBA9BB)      -> 0xDD57
+//   Khaki (#B3A589)            -> 0xB531
+//   Chestnut (#A53F2B)         -> 0xA1E5
+//   Gunmetal (#2A2D34)         -> 0x2966
+
+#define COLOR_BG 0x0000          // Black background reverted
+#define COLOR_FOCUS 0x96BC       // Light blue fill for focus
+#define COLOR_BREAK 0xDD57       // Pink fill for break
+#define COLOR_SLOT  0x0000       // Fallback slot coloring (matches background)
+#define COLOR_ACCENT_OCHRE 0xB531 // Khaki accent
+#define COLOR_ACCENT_DUSTY_RED 0xA1E5 // Chestnut accent (may be used elsewhere)
+#define COLOR_TIMER_TEXT 0xEFBD  // Anti-flash white for timer digits
+
+// Darker variants for progress perimeter strokes (slightly darkened versions)
+// Derived by reducing RGB components ~20% before 565 conversion (approximation)
+#define COLOR_FOCUS_DARK 0x7D7A   // Darker blue stroke
+#define COLOR_BREAK_DARK 0xC4F3   // Darker pink stroke
+
 
 // Aliases for UI elements
 #define COLOR_UNDERLINE_FOCUS COLOR_FOCUS // Green underline
@@ -16,7 +34,7 @@
 
 // --- Font & Text Settings ---
 #define FONT_SIZE_TASKBAR 2
-#define FONT_SIZE_TIMER   5
+#define FONT_SIZE_TIMER   10
 #define FONT_FAMILY "default" // Adafruit GFX default
 
 // --- Slot/Taskbar Layout ---
@@ -38,4 +56,20 @@
 
 // Enable smooth incremental progress updates (draw only the newly added arc each second)
 // Set to 0 to fall back to segmented updates (PROGRESS_SEGMENTS)
+// If set, we draw incremental arc each second (unless continuous is enabled)
 #define SMOOTH_PROGRESS 1
+
+// Enable millisecond-based flowing animation (overrides smooth/segmented drawing)
+#ifndef CONTINUOUS_PROGRESS
+#define CONTINUOUS_PROGRESS 1
+#endif
+
+// --- Slot Outline Progress ---
+// Thickness (in pixels) of the animated outline that traces the taskbar slot perimeter
+#ifndef SLOT_PROGRESS_THICKNESS
+#define SLOT_PROGRESS_THICKNESS 4
+#endif
+// Enable new slot perimeter progress style (set to 1 to use instead of circular progress)
+#ifndef USE_SLOT_PROGRESS
+#define USE_SLOT_PROGRESS 1
+#endif

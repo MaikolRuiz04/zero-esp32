@@ -26,7 +26,7 @@ void drawTimer(Adafruit_ILI9341 &tft, int minutes, int seconds) {
   int y = top + ((bottom - top) - textHeight) / 2;
   tft.fillRect(x, y, textWidth, textHeight, ILI9341_BLACK); // clear with black background
   extern Mode currentMode;
-  uint16_t timerColor = 0xFFFF; // White for both modes
+  uint16_t timerColor = COLOR_TIMER_TEXT;
   tft.setTextColor(timerColor, ILI9341_BLACK);
   tft.setTextSize(textSize);
   tft.setCursor(x, y);
@@ -45,7 +45,7 @@ void drawTimerOptimized(Adafruit_ILI9341 &tft, int minutes, int seconds) {
   int bottom = tft.height();
   int x0 = (tft.width() - textWidth) / 2;
   int y0 = top + ((bottom - top) - charH) / 2;
-  uint16_t timerColor = 0xFFFF;
+  uint16_t timerColor = COLOR_TIMER_TEXT;
   tft.setTextSize(textSize);
   tft.setTextColor(timerColor, ILI9341_BLACK);
 

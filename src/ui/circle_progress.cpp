@@ -9,10 +9,81 @@ static inline float deg2rad(float d){ return d * 3.14159f / 180.0f; }
 
 // Static state shared between calls (for baseline/full clearing logic)
 static float g_lastFullDrawPercent = -1.0f; // mirrors internal lastPercent in drawCircleProgress
+static unsigned long g_cycleStartMs = 0;
+static int g_cycleTotalMs = 0;
+static float g_continuousLastPercent = -1.0f;
+static float g_lastDrawnAngle = -1000.0f; // absolute angle in degrees of last drawn progress (start at sentinel)
 
 void resetCircleProgressState() {
   g_lastFullDrawPercent = -1.0f;
+  g_continuousLastPercent = -1.0f;
+  g_lastDrawnAngle = -1000.0f;
 }
+
+#if CONTINUOUS_PROGRESS
+void startProgressCycle(int totalSeconds) {
+  g_cycleStartMs = millis();
+  g_cycleTotalMs = totalSeconds * 1000;
+  g_continuousLastPercent = -1.0f;
+  g_lastFullDrawPercent = -1.0f;
+  g_lastDrawnAngle = -90.0f; // logical start (top)
+}
+
+static float computeContinuousPercent() {
+  if (g_cycleTotalMs <= 0) return 0.0f;
+  unsigned long now = millis();
+  unsigned long elapsed = (now >= g_cycleStartMs) ? (now - g_cycleStartMs) : 0UL;
+  if (elapsed >= (unsigned long)g_cycleTotalMs) return 1.0f;
+  return (float)elapsed / (float)g_cycleTotalMs;
+}
+
+void updateProgressAnimation(Adafruit_ILI9341 &tft, uint16_t focusColor, uint16_t breakColor, int diameter) {
+  extern Mode currentMode;
+  float targetPercent = computeContinuousPercent();
+  if (targetPercent < 0) targetPercent = 0; if (targetPercent > 1) targetPercent = 1;
+  uint16_t color = (currentMode==FOCUS? focusColor : breakColor);
+  // Geometry (duplicate logic for center/r)
+  int top = SLOT_Y + SLOT_H;
+  int bottom = tft.height();
+  int cx = tft.width() / 2;
+  int cy = top + (bottom - top) / 2;
+  int availableHeight = bottom - top;
+  int r;
+  if (diameter > 0) {
+    r = diameter / 2;
+  } else {
+    r = (tft.width() < availableHeight ? tft.width() : availableHeight) / 2 - 20;
+  }
+  int thickness = PROGRESS_THICKNESS;
+
+  float targetAngle = -90.0f + targetPercent * 360.0f;
+  if (g_lastDrawnAngle < -900.0f) {
+    // first frame: draw initial span from start to target
+    g_lastDrawnAngle = -90.0f;
+  }
+  // Angle step for roughly one pixel arc length: deg_per_pixel = 57.2958 / r
+  float pixelStep = 57.2957795f / (float)r;
+  if (pixelStep < 0.2f) pixelStep = 0.2f; // clamp lower bound to avoid huge loops on large radius
+  // Draw forward until we reach targetAngle
+  int stepsThisCall = 0;
+  const int MAX_STEPS_PER_CALL = 40; // safety to avoid long blocking frame if behind
+  while (g_lastDrawnAngle + pixelStep <= targetAngle && stepsThisCall < MAX_STEPS_PER_CALL) {
+    float a = g_lastDrawnAngle + pixelStep;
+    float rad = a * 3.14159f / 180.0f;
+    float cosv = cos(rad);
+    float sinv = sin(rad);
+    for (int t = 0; t < thickness; ++t) {
+      int rr = r - t;
+      int x = cx + (int)(rr * cosv);
+      int y = cy + (int)(rr * sinv);
+      tft.drawPixel(x, y, color);
+    }
+    g_lastDrawnAngle = a;
+    stepsThisCall++;
+  }
+  g_continuousLastPercent = targetPercent;
+}
+#endif
 
 void drawCircleProgress(Adafruit_ILI9341 &tft, float percent, uint16_t color, int diameter) {
   // Center between slot bottom and screen bottom

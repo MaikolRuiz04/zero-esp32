@@ -5,8 +5,13 @@
 #include <Adafruit_ILI9341.h>
 #include "ui/taskbar.h"
 #include "ui/timer_display.h"
-#include "ui/circle_progress.h"
+#include "ui/circle_progress.h" // retained for fallback
+#include "ui/slot_progress.h"
+#include "ui/theme_provider.h"
 #include "features/buzzer.h"
+#include "core/timer_controller.h"
+#include "system/settings.h"
+#include "system/statistics.h"
 
 // Default beep configuration (can move to a config header later)
 #define BUZZER_BEEP_MS 1000
@@ -22,18 +27,19 @@
 
 Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
 
-Mode currentMode = FOCUS;
-int focusSeconds = 25 * 60;
-int breakSeconds = 5 * 60;
-int timerSeconds = focusSeconds;
+Settings settings; // loads defaults then persistence
+Statistics stats;  // persisted statistics
+TimerController timer(25*60, 5*60); // will be replaced after settings load
+Mode currentMode = FOCUS; // Mirror TimerController (will be removed when UI migrated)
 bool lastButtonState = HIGH;
 unsigned long lastButtonEventMs = 0; // for non-blocking debounce
 const unsigned long BUTTON_DEBOUNCE_MS = 300;
 
 void updateUI() {
   // Only refresh timer numbers
-  int minutes = timerSeconds / 60;
-  int seconds = timerSeconds % 60;
+  int remaining = timer.getRemainingSeconds();
+  int minutes = remaining / 60;
+  int seconds = remaining % 60;
   drawTimerOptimized(tft, minutes, seconds);
 }
 
@@ -43,16 +49,27 @@ void setup() {
   tft.begin();
   tft.setRotation(1);
   pinMode(EN_BUTTON, INPUT_PULLUP);
+  settings.load();
+  stats.load();
+  // Re-init timer with persisted settings
+  timer = TimerController(settings.focusSeconds(), settings.breakSeconds());
   buzzerSetup();
-  // Draw static UI elements once
-  tft.fillScreen(ILI9341_BLACK);
+  tft.fillScreen(COLOR_BG); // now black
   drawTaskbar(tft, currentMode);
-  float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-  uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-  drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
-  // Draw timer
-  int minutes = timerSeconds / 60;
-  int seconds = timerSeconds % 60;
+  // Initialize new slot progress
+  #if USE_SLOT_PROGRESS
+    slotProgressReset();
+    slotProgressStart(timer.getTotalSecondsForMode());
+  #else
+    float percent = 1.0f - ((float)timer.getRemainingSeconds() / timer.getTotalSecondsForMode());
+    uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+    drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+    #if CONTINUOUS_PROGRESS
+      startProgressCycle(timer.getTotalSecondsForMode());
+    #endif
+  #endif
+  int minutes = timer.getRemainingSeconds() / 60;
+  int seconds = timer.getRemainingSeconds() % 60;
   drawTimer(tft, minutes, seconds);
 }
 
@@ -64,30 +81,39 @@ void loop() {
     if (now - lastButtonEventMs >= BUTTON_DEBOUNCE_MS) {
       // Button accepted (debounced)
       lastButtonEventMs = now;
-      if (currentMode == FOCUS) {
-        currentMode = BREAK;
-        timerSeconds = breakSeconds;
+      // Manual toggle
+      timer.toggleMode();
+      currentMode = timer.isFocus() ? FOCUS : BREAK;
+      // Record completion stats when switching FROM focus
+      if (!timer.isFocus()) {
+        stats.recordFocusCompletion(settings.focusSeconds());
       } else {
-        currentMode = FOCUS;
-        timerSeconds = focusSeconds;
+        stats.recordBreakCompletion(settings.breakSeconds());
       }
-      // Redraw static UI elements on mode switch
-      tft.fillScreen(ILI9341_BLACK);
+  // Redraw base UI
+  tft.fillScreen(COLOR_BG); // black on redraw
       drawTaskbar(tft, currentMode);
-      resetCircleProgressState();
       resetTimerDisplayState();
-      float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-      uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-      drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
-      // Draw timer
-      int minutes = timerSeconds / 60;
-      int seconds = timerSeconds % 60;
+      #if USE_SLOT_PROGRESS
+        slotProgressReset();
+        slotProgressStart(timer.getTotalSecondsForMode());
+      #else
+        resetCircleProgressState();
+        float percent = 1.0f - ((float)timer.getRemainingSeconds() / timer.getTotalSecondsForMode());
+        uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
+        drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+        #if CONTINUOUS_PROGRESS
+          startProgressCycle(timer.getTotalSecondsForMode());
+        #endif
+      #endif
+      int minutes = timer.getRemainingSeconds() / 60;
+      int seconds = timer.getRemainingSeconds() % 60;
       drawTimer(tft, minutes, seconds);
       // Audio cue: entering FOCUS = single short beep, entering BREAK = double beep
       if (currentMode == FOCUS) {
-        buzzerBeep(150, BUZZER_DUTY_PERCENT); // single concise confirmation
+        buzzerBeep(150, BUZZER_DUTY_PERCENT);
       } else {
-        buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT); // break indicator
+        buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT);
       }
       // No blocking delay; buzzerService will run to stop beep exactly on time
     }
@@ -95,68 +121,41 @@ void loop() {
   lastButtonState = buttonState;
 
   // Timer countdown
-  static unsigned long lastTick = 0;
-  static float lastProgressPercent = -1.0f; // for smooth delta drawing
-  if (millis() - lastTick >= 1000) {
-    if (timerSeconds > 0) {
-      timerSeconds--;
-      updateUI();
-#if SMOOTH_PROGRESS
-      // Draw incremental arc every second (smooth mode)
-      int totalForMode = (currentMode == FOCUS ? focusSeconds : breakSeconds);
-      float percent = 1.0f - ((float)timerSeconds / totalForMode);
-      uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-      if (lastProgressPercent < 0) {
-        drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
+  if (timer.update()) {
+    updateUI();
+    // Auto mode switch handled inside timer; update currentMode mirror
+    currentMode = timer.isFocus() ? FOCUS : BREAK;
+    if (timer.getRemainingSeconds() == timer.getTotalSecondsForMode()) {
+      // Just switched; restart progress trackers
+      #if USE_SLOT_PROGRESS
+        slotProgressReset();
+        slotProgressStart(timer.getTotalSecondsForMode());
+      #else
+        resetCircleProgressState();
+        #if CONTINUOUS_PROGRESS
+          startProgressCycle(timer.getTotalSecondsForMode());
+        #endif
+      #endif
+      // Stats: we switched FROM the other mode, record completion
+      if (!timer.isFocus()) {
+        stats.recordFocusCompletion(settings.focusSeconds());
       } else {
-        drawCircleProgressDelta(tft, lastProgressPercent, percent, arcColor, PROGRESS_DIAMETER);
+        stats.recordBreakCompletion(settings.breakSeconds());
       }
-      lastProgressPercent = percent;
-#endif
-    } else {
-      // Switch mode automatically when timer runs out
-      if (currentMode == FOCUS) {
-        currentMode = BREAK;
-        timerSeconds = breakSeconds;
-      } else {
-        currentMode = FOCUS;
-        timerSeconds = focusSeconds;
-      }
-      // Redraw static UI elements on mode switch
-      tft.fillScreen(ILI9341_BLACK);
-      drawTaskbar(tft, currentMode);
-      resetCircleProgressState();
-  resetTimerDisplayState();
-    float percent = 1.0f - ((float)timerSeconds / (currentMode == FOCUS ? focusSeconds : breakSeconds));
-    uint16_t arcColor2 = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-    drawCircleProgress(tft, percent, arcColor2, PROGRESS_DIAMETER);
-    lastProgressPercent = percent;
-      if (currentMode == FOCUS) {
-        buzzerBeep(150, BUZZER_DUTY_PERCENT);
-      } else {
-        buzzerDoubleBeep(120, 120, 120, BUZZER_DUTY_PERCENT);
-      }
-      int minutes = timerSeconds / 60;
-      int seconds = timerSeconds % 60;
-      drawTimer(tft, minutes, seconds);
+  // Redraw taskbar to reflect underline change
+  drawTaskbar(tft, currentMode);
+      // Beep on switch
+  if (currentMode == FOCUS) buzzerBeep(150, BUZZER_DUTY_PERCENT); else buzzerDoubleBeep(120,120,120,BUZZER_DUTY_PERCENT);
     }
-    lastTick = millis();
   }
-#if !SMOOTH_PROGRESS
-  // Segmented update mode
-  int totalForMode = (currentMode == FOCUS ? focusSeconds : breakSeconds);
-  int segmentLengthSec = totalForMode / PROGRESS_SEGMENTS;
-  if (segmentLengthSec < 1) segmentLengthSec = 1;
-  static int lastSegmentIndex = -1;
-  int elapsed = totalForMode - timerSeconds;
-  int currentSegmentIndex = elapsed / segmentLengthSec;
-  if (currentSegmentIndex != lastSegmentIndex) {
-    float percent = 1.0f - ((float)timerSeconds / totalForMode);
-    uint16_t arcColor = (currentMode == FOCUS) ? COLOR_ACCENT_DUSTY_RED : COLOR_BREAK;
-    drawCircleProgress(tft, percent, arcColor, PROGRESS_DIAMETER);
-    lastSegmentIndex = currentSegmentIndex;
-  }
-#endif
+  // Progress drawing
+  #if USE_SLOT_PROGRESS
+    slotProgressUpdate(tft, timer);
+  #else
+    #if CONTINUOUS_PROGRESS
+      updateProgressAnimation(tft, COLOR_ACCENT_DUSTY_RED, COLOR_BREAK, PROGRESS_DIAMETER);
+    #endif
+  #endif
   // Non-blocking buzzer service
   buzzerService();
 }
