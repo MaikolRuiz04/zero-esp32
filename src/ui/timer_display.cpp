@@ -1,9 +1,13 @@
 #include "ui/timer_display.h"
 #include "ui/taskbar.h" // for Mode and currentMode
 #include "ui_design.h"
-#include <Adafruit_GFX.h>
+
+
+
+#include <TFT_eSPI.h>
 
 // Internal state for optimized redraw
+
 static int lastMin = -1;
 static int lastSec = -1;
 
@@ -12,81 +16,77 @@ void resetTimerDisplayState() {
   lastSec = -1;
 }
 
-void drawTimer(Adafruit_ILI9341 &tft, int minutes, int seconds) {
-  char buf[6];
-  sprintf(buf, "%02d:%02d", minutes, seconds);
-  int textSize = FONT_SIZE_TIMER;
-  int textWidth = 5 * 6 * textSize;
-  int textHeight = 8 * textSize;
-  // Center between slot bottom and screen bottom
-  int slotY = 8, slotH = 36;
-  int top = slotY + slotH;
-  int bottom = tft.height();
-  int x = (tft.width() - textWidth) / 2;
-  int y = top + ((bottom - top) - textHeight) / 2;
-  tft.fillRect(x, y, textWidth, textHeight, ILI9341_BLACK); // clear with black background
-  extern Mode currentMode;
-  uint16_t timerColor = COLOR_TIMER_TEXT;
-  tft.setTextColor(timerColor, ILI9341_BLACK);
-  tft.setTextSize(textSize);
-  tft.setCursor(x, y);
-  tft.print(buf);
-}
 
-void drawTimerOptimized(Adafruit_ILI9341 &tft, int minutes, int seconds) {
-  int textSize = FONT_SIZE_TIMER;
-  int charW = 6 * textSize; // base Adafruit 5 wide +1 spacing
-  int charH = 8 * textSize;
-  int totalChars = 5; // MM:SS
-  int textWidth = totalChars * charW;
+void drawTimer(TFT_eSPI &tft, int minutes, int seconds) {
+  // Only update if changed
+  if (minutes == lastMin && seconds == lastSec) return;
+
   int slotY = SLOT_Y;
   int slotH = SLOT_H;
   int top = slotY + slotH;
   int bottom = tft.height();
-  int x0 = (tft.width() - textWidth) / 2;
-  int y0 = top + ((bottom - top) - charH) / 2;
-  uint16_t timerColor = COLOR_TIMER_TEXT;
+  int centerX = tft.width() / 2;
+  // Center timer between bottom of slot and bottom of screen
+  int timerAreaTop = top;
+  int timerAreaBottom = bottom;
+  int timerAreaH = timerAreaBottom - timerAreaTop;
+  int centerY = timerAreaTop + timerAreaH / 2;
+
+  tft.setTextFont(7); // Use 7-segment, square font
+  int charW = 36, charH = 48; // Font 7: charH is 48px (approx)
+  int maxW = tft.width() - 10; // 5px offset per side
+  int maxH = timerAreaH - 10;
+  // Treat as 4 chars + colon, both sides tight
+  float digitCharW = 1.7f * charW; // Each 2 digits (MM or SS) is 1.7x charW wide
+  float colonCharW = 0.6f * charW; // Colon is narrower
+  float totalCharW = (2 * digitCharW) + colonCharW;
+  // Maximize textSize by height first, then width
+  int textSizeH = maxH / charH;
+  int textSizeW = maxW / (int)totalCharW;
+  int textSize = (textSizeH < textSizeW) ? textSizeH : textSizeW;
+  if (textSize < 1) textSize = 1;
   tft.setTextSize(textSize);
-  tft.setTextColor(timerColor, ILI9341_BLACK);
 
-  // Convert to digits
-  int mT = minutes / 10; int mO = minutes % 10;
-  int sT = seconds / 10; int sO = seconds % 10;
-  int last_mT = (lastMin < 0) ? -1 : lastMin / 10;
-  int last_mO = (lastMin < 0) ? -1 : lastMin % 10;
-  int last_sT = (lastSec < 0) ? -1 : lastSec / 10;
-  int last_sO = (lastSec < 0) ? -1 : lastSec % 10;
+  // Calculate positions for each part
+  int totalW = (int)(totalCharW * textSize);
+  int xStart = centerX - totalW / 2;
+  int yStart = centerY - (charH * textSize) / 2;
 
-  // Helper lambda to clear+print a single character
-  auto drawCharAt = [&](int index, char c) {
-    int cx = x0 + index * charW;
-    tft.fillRect(cx, y0, charW, charH, ILI9341_BLACK);
-    tft.setCursor(cx, y0);
-    tft.print(c);
-  };
-
-  // Force full redraw if first time
-  if (lastMin < 0 || lastSec < 0) {
-    char buf[6];
-    sprintf(buf, "%02d:%02d", minutes, seconds);
-    for (int i = 0; i < 5; ++i) drawCharAt(i, buf[i]);
-    lastMin = minutes; lastSec = seconds; return;
+  // Draw minutes if changed
+  if (minutes != lastMin) {
+    char minBuf[3];
+    sprintf(minBuf, "%02d", minutes);
+    // Erase old
+    tft.fillRect(xStart, yStart, (int)(digitCharW * textSize), charH * textSize, TFT_BLACK);
+    // Draw new
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString(minBuf, xStart, yStart);
+  }
+  // Always draw colon (centered, less gap)
+  int colonX = xStart + (int)(digitCharW * textSize);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString(":", colonX, yStart);
+  // Draw seconds if changed
+  if (seconds != lastSec) {
+    char secBuf[3];
+    sprintf(secBuf, "%02d", seconds);
+    int secX = colonX + (int)(colonCharW * textSize);
+    // Erase old
+    tft.fillRect(secX, yStart, (int)(digitCharW * textSize), charH * textSize, TFT_BLACK);
+    // Draw new
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString(secBuf, secX, yStart);
   }
 
-  // Minutes tens (index 0)
-  if (mT != last_mT) drawCharAt(0, '0' + mT);
-  // Minutes ones (index 1)
-  if (mO != last_mO) drawCharAt(1, '0' + mO);
-  // Colon (index 2) - colon never changes; could skip unless styling differs
-  // Seconds tens (index 3)
-  if (sT != last_sT) drawCharAt(3, '0' + sT);
-  // Seconds ones (index 4)
-  if (sO != last_sO) drawCharAt(4, '0' + sO);
-  // If colon was never drawn (first incremental redraw without full), ensure it's present
-  if (lastMin < 0 || lastSec < 0) drawCharAt(2, ':');
-  else if (last_mT != mT || last_mO != mO || last_sT != sT || last_sO != sO) {
-    // colon stays; but if aesthetic flicker is observed we could reprint colon once per minute change
-  }
   lastMin = minutes;
   lastSec = seconds;
+
+  tft.setTextFont(1); // Reset to default
+  tft.setTextSize(1);
 }
+
+
+// drawTimerOptimized is now obsolete; use drawTimer for flicker-free, artifact-free updates

@@ -1,8 +1,11 @@
 #include "ui/taskbar.h" // for Mode and currentMode
 #include "ui_design.h"
 #include "ui/circle_progress.h"
-#include <Adafruit_GFX.h>
+
+#include <TFT_eSPI.h>
 #include <math.h>
+#include "core/timer_controller.h"
+#include "ui/theme_provider.h"
 
 // Forward helper to convert degrees to radians
 static inline float deg2rad(float d){ return d * 3.14159f / 180.0f; }
@@ -37,11 +40,15 @@ static float computeContinuousPercent() {
   return (float)elapsed / (float)g_cycleTotalMs;
 }
 
-void updateProgressAnimation(Adafruit_ILI9341 &tft, uint16_t focusColor, uint16_t breakColor, int diameter) {
+void updateProgressAnimation(TFT_eSPI &tft, uint16_t /*focusColor*/, uint16_t /*breakColor*/, int diameter) {
   extern Mode currentMode;
   float targetPercent = computeContinuousPercent();
   if (targetPercent < 0) targetPercent = 0; if (targetPercent > 1) targetPercent = 1;
-  uint16_t color = (currentMode==FOCUS? focusColor : breakColor);
+  // Use ThemeProvider for progress color
+  TimerMode tmode = (currentMode == FOCUS) ? TimerMode::Focus : TimerMode::Break;
+  TimerController dummyController(1500, 300); // dummy values, only mode matters
+  dummyController.reset(tmode);
+  uint16_t color = ThemeProvider::progressColor(dummyController);
   // Geometry (duplicate logic for center/r)
   int top = SLOT_Y + SLOT_H;
   int bottom = tft.height();
@@ -85,7 +92,7 @@ void updateProgressAnimation(Adafruit_ILI9341 &tft, uint16_t focusColor, uint16_
 }
 #endif
 
-void drawCircleProgress(Adafruit_ILI9341 &tft, float percent, uint16_t color, int diameter) {
+void drawCircleProgress(TFT_eSPI &tft, float percent, uint16_t color, int diameter) {
   // Center between slot bottom and screen bottom
   int top = SLOT_Y + SLOT_H;
   int bottom = tft.height();
@@ -108,9 +115,12 @@ void drawCircleProgress(Adafruit_ILI9341 &tft, float percent, uint16_t color, in
     lastPercent = -1.0f;
   }
   float endAngle = startAngle + 360 * percent;
-  // Erase previous arc by overdrawing with background color (soft pastel)
+  // Erase previous arc by overdrawing with background color (slot fill color)
   extern Mode currentMode;
-  uint16_t arcBgColor = (currentMode == FOCUS) ? COLOR_ACCENT_OCHRE : COLOR_SLOT;
+  TimerMode tmode = (currentMode == FOCUS) ? TimerMode::Focus : TimerMode::Break;
+  TimerController dummyController(1500, 300); // dummy values, only mode matters
+  dummyController.reset(tmode);
+  uint16_t arcBgColor = ThemeProvider::slotFillColor(dummyController);
   float angleStep = PROGRESS_ANGLE_STEP; // configurable smoothness
   // If decreasing, clear full ring
   if (lastPercent > percent || lastPercent < 0) {
@@ -140,7 +150,7 @@ void drawCircleProgress(Adafruit_ILI9341 &tft, float percent, uint16_t color, in
   g_lastFullDrawPercent = lastPercent;
 }
 
-void drawCircleProgressDelta(Adafruit_ILI9341 &tft, float lastPercent, float newPercent, uint16_t color, int diameter) {
+void drawCircleProgressDelta(TFT_eSPI &tft, float lastPercent, float newPercent, uint16_t color, int diameter) {
   if (newPercent < 0) newPercent = 0; if (newPercent > 1) newPercent = 1;
   if (lastPercent < 0) lastPercent = 0; if (lastPercent > 1) lastPercent = 1;
   if (newPercent <= lastPercent) return; // nothing to add

@@ -2,21 +2,26 @@
 
 # ESP32 Pomodoro Timer
 
-**Version:** 0.16
+**Version:** 0.20
+
+## v0.20 Major Updates
+- Integrated rotary encoder for input/navigation.
+- Migrated display library to TFT_eSPI for improved performance and compatibility.
+- Changed all UI fonts to RobotoMono (RobotoMono_Regular12pt7b for taskbar, large 7-segment for timer).
 
 ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, modular timer controller, persisted settings/statistics, and an updated themeable palette. Built for incremental drawing (low flicker) and rapid host-side iteration.
 
 ## Features
 | Area | Highlights |
 |------|------------|
-| UI Architecture | `src/ui/` (taskbar, timer display, slot outline progress, optional circular ring) |
-| Progress Style | Perimeter slot trace (rounded rectangle) with darker stroke variants; legacy circular ring behind flag |
+| UI Architecture | `src/ui/` (taskbar, timer display, slot outline progress, optional circular ring, rotary encoder integration) |
+| Progress Style | Perimeter slot trace (rounded rectangle) with anti-flash white progress; legacy circular ring behind flag |
 | Modes | Auto cycle FOCUS ↔ BREAK on completion |
 | Timer Logic | `TimerController` encapsulates countdown & switch logic |
 | Persistence | `Settings` (focus/break minutes) & `Statistics` (cycles, minutes) via Preferences |
-| Rendering | Per‑digit timer redraw; incremental (~1 px) perimeter advances each loop |
+| Rendering | Per‑digit timer redraw; incremental (~1 px) perimeter advances each loop; taskbar font is RobotoMono_Regular12pt7b; all fonts now RobotoMono |
 | Performance | Bounded pixel work per frame; minimal full-screen redraws |
-| Customization | Palette, fonts, thickness macros centralized in `ui_design.h` |
+| Customization | Palette, fonts, thickness macros centralized in `ui_design.h`; slot color for focus mode is #2E4057 (RGB565: 0x346F); slot progress and underline are always anti-flash white; increased slot text padding; migrated to TFT_eSPI |
 | Audio | Non‑blocking buzzer (short beep focus, double beep break) |
 | Testing | Removed in 0.16 (manual inspection only) |
 | Debounce | Timestamp-based button debounce (300 ms) |
@@ -26,7 +31,7 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 | Path | Purpose |
 |------|---------|
 | `src/main.cpp` | Runtime orchestration: mode state machine, UI refresh cadence, buzzer triggers |
-| `src/ui/taskbar.*` | Top bar & active mode underline |
+| `src/ui/taskbar.*` | Top bar with FOCUS/BREAK label highlighting (active mode label is white, inactive is black); no underline |
 | `src/ui/timer_display.*` | Optimized mm:ss drawing (only changed digits) |
 | `src/ui/slot_progress.*` | Perimeter slot progress (primary) |
 | `src/ui/circle_progress.*` | Legacy circular progress (fallback if `USE_SLOT_PROGRESS`=0) |
@@ -42,8 +47,9 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 1. Startup: load settings & statistics; draw taskbar and timer; start perimeter progress cycle.
 2. Each second: `TimerController.update()` decrements; only changed digits redraw.
 3. Each loop: perimeter progress advances toward target length (millisecond based).
-4. Mode completion: statistics update, progress resets, buzzer pattern plays.
-5. Buzzer service runs non-blocking to end tones precisely.
+4. Taskbar: active mode label (FOCUS or BREAK) is white, inactive is black; slot color for focus mode is #2E4057.
+5. Mode completion: statistics update, progress resets, buzzer pattern plays.
+6. Buzzer service runs non-blocking to end tones precisely.
 
 ## Customization
 | What | Where |
@@ -52,7 +58,7 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 | Perimeter thickness | `SLOT_PROGRESS_THICKNESS` |
 | Circular ring fallback | Set `USE_SLOT_PROGRESS 0` (re-enable ring macros) |
 | Smooth ring (legacy) | `SMOOTH_PROGRESS`, `CONTINUOUS_PROGRESS` |
-| Colors / Palette | `ui_design.h` (base + dark stroke variants) |
+| Colors / Palette | `ui_design.h` (base + dark stroke variants); slot color for focus mode is #2E4057; slot progress and underline are always anti-flash white |
 | Buzzer patterns | Constants in `main.cpp` |
 | Font sizes | `FONT_SIZE_TIMER`, `FONT_SIZE_TASKBAR` |
 | Statistics | Auto-updated on mode switch | 
@@ -92,7 +98,7 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 | Ring geometry | Edit `PROGRESS_DIAMETER`, `PROGRESS_THICKNESS` |
 | Session lengths | Edit `focusSeconds`, `breakSeconds` in `main.cpp` |
 | Audio timing | Adjust buzzer macros / constants (`BUZZER_BEEP_MS`, etc.) |
-| Color accents | Edit color defines in `ui_design.h` |
+| Color accents | Edit color defines in `ui_design.h` (focus slot color: #2E4057/0x346F; progress/underline: anti-flash white) |
 
 ## Makefile Targets
 | Target | Action |

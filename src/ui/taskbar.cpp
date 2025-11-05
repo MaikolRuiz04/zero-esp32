@@ -1,6 +1,10 @@
-
 #include "ui/taskbar.h"
-#include <Adafruit_GFX.h>
+#include "ui/theme_provider.h"
+#include "core/timer_controller.h"
+
+
+#include <TFT_eSPI.h>
+#include "../lib/TFT_eSPI/Fonts/GFXFF/RobotoMono_Regular12pt7b.h"
 
 // Academia pastel earthy tones (RGB565)
 
@@ -8,49 +12,38 @@
 
 #include "ui_design.h"
 
-void drawTaskbar(Adafruit_ILI9341 &tft, Mode mode) {
+void drawTaskbar(TFT_eSPI &tft, Mode mode, int verticalPad) {
   int slotX = SLOT_X;
   int slotY = SLOT_Y;
   int slotW = SLOT_W(tft.width());
   int slotH = SLOT_H;
   int slotR = SLOT_R;
-  // Draw rounded slot
-  // Updated palette: use distinct fills for focus/break
-  uint16_t slotColor = (mode == FOCUS) ? COLOR_FOCUS : COLOR_BREAK;
+  // Use ThemeProvider for slot color
+  // Slot color: #2E4057 (0x346F) for focus, original break color for break
+  uint16_t slotColor = (mode == FOCUS) ? 0x346F : COLOR_SLOT_BREAK;
   tft.fillRoundRect(slotX, slotY, slotW, slotH, slotR, slotColor);
-  // Text settings
-  tft.setTextSize(FONT_SIZE_TASKBAR);
-  // FOCUS
-  const char* focusText = "FOCUS";
-  int focusLen = 5;
-  int charWidth = 6;
-  int textSize = 2;
-  int focusPixelWidth = focusLen * charWidth * textSize;
-  int focusX = slotX + 14;
-  int focusY = slotY + 10;
-  tft.setTextColor(0x0000); // black text for contrast
-  tft.setCursor(focusX, focusY);
-  tft.print(focusText);
-  // BREAK
-  const char* breakText = "BREAK";
-  int breakLen = 5;
-  int breakPixelWidth = breakLen * charWidth * textSize;
-  int breakX = slotX + slotW - breakPixelWidth - 14;
-  int breakY = slotY + 10;
-  tft.setTextColor(0x0000); // black text
-  tft.setCursor(breakX, breakY);
-  tft.print(breakText);
-  // Underline below active mode
-  int underlineY = slotY + slotH - 7;
-  int underlineWidth;
-  int underlineX;
-  uint16_t underlineColor = (mode == FOCUS) ? COLOR_FOCUS_DARK : COLOR_BREAK_DARK;
-  if (mode == FOCUS) {
-    underlineWidth = focusPixelWidth;
-    underlineX = focusX;
-  } else {
-    underlineWidth = breakPixelWidth;
-    underlineX = breakX;
-  }
-  tft.drawLine(underlineX, underlineY, underlineX + underlineWidth, underlineY, underlineColor);
+
+  // --- Taskbar Text: FOCUS (left), BREAK (right) ---
+  int pad = 15; // Increased side padding
+  tft.setFreeFont(&RobotoMono_Regular12pt7b); // Use smaller RobotoMono Regular
+  int fontY = slotY + verticalPad;
+  int fontH = slotH - 2 * verticalPad;
+  // FOCUS: left aligned, inside slot
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor((mode == FOCUS) ? COLOR_TIMER_TEXT : TFT_BLACK, slotColor);
+  tft.drawString("FOCUS", slotX + pad, fontY);
+  // BREAK: right aligned, inside slot
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor((mode == BREAK) ? COLOR_TIMER_TEXT : TFT_BLACK, slotColor);
+  tft.drawString("BREAK", slotX + slotW - pad, fontY);
+  tft.setTextFont(1); // Reset to default
+  tft.setTextSize(1);
+  tft.setFreeFont(NULL);
+
+  // No underline
+}
+
+// Overload for backward compatibility
+void drawTaskbar(TFT_eSPI &tft, Mode mode) {
+  drawTaskbar(tft, mode, 4); // Default to 4px vertical padding
 }

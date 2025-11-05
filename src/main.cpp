@@ -1,8 +1,8 @@
 #include "ui_design.h"
 #include <Arduino.h>
 #include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
+// TFT_eSPI migration
+#include <TFT_eSPI.h>
 #include "ui/taskbar.h"
 #include "ui/timer_display.h"
 #include "ui/circle_progress.h" // retained for fallback
@@ -32,7 +32,7 @@
 #define ROTARY_DT  26  // GPIO26 (B)
 #define ROTARY_SW  32  // GPIO32 (button)
 
-Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
+TFT_eSPI tft = TFT_eSPI();
 
 Settings settings; // loads defaults then persistence
 TimerController timer(25*60, 5*60); // will be replaced after settings load
@@ -83,7 +83,7 @@ void updateUI() {
   int remaining = timer.getRemainingSeconds();
   int minutes = remaining / 60;
   int seconds = remaining % 60;
-  drawTimerOptimized(tft, minutes, seconds);
+  drawTimer(tft, minutes, seconds);
 }
 
 #ifndef UNIT_TEST
@@ -150,8 +150,7 @@ void loop() {
         }
         // Prepare wakeup on GPIO32 (rotary button)
         esp_sleep_enable_ext0_wakeup((gpio_num_t)ROTARY_SW, 0); // Wake on LOW
-  tft.fillScreen(ILI9341_BLACK);
-  tft.writeCommand(ILI9341_DISPOFF); // Turn off display if supported
+  tft.fillScreen(TFT_BLACK);
   digitalWrite(TFT_BACKLIGHT, LOW); // Backlight OFF
   delay(100);
   esp_deep_sleep_start();
@@ -264,7 +263,7 @@ void loop() {
     slotProgressUpdate(tft, timer);
   #else
     #if CONTINUOUS_PROGRESS
-      updateProgressAnimation(tft, COLOR_ACCENT_DUSTY_RED, COLOR_BREAK, PROGRESS_DIAMETER);
+  updateProgressAnimation(tft, 0, 0, PROGRESS_DIAMETER);
     #endif
   #endif
   // Non-blocking buzzer service

@@ -1,4 +1,7 @@
 #pragma once
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
 enum Mode { FOCUS, BREAK };
-void drawTaskbar(Adafruit_ILI9341 &tft, Mode mode);
+// Overload for backward compatibility
+void drawTaskbar(TFT_eSPI &tft, Mode mode);
+// New version with verticalPad
+void drawTaskbar(TFT_eSPI &tft, Mode mode, int verticalPad);

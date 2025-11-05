@@ -1,3 +1,5 @@
+#include "ui/theme_provider.h"
+#include "core/timer_controller.h"
 #include "slot_progress.h"
 #include <math.h>
 
@@ -22,7 +24,7 @@ void slotProgressStart(int totalSeconds) {
     g_lastLengthDrawn = 0.0f;
 }
 
-static void computeGeometry(Adafruit_ILI9341 &tft) {
+static void computeGeometry(TFT_eSPI &tft) {
     g_slotX = SLOT_X;
     g_slotY = SLOT_Y;
     g_slotW = SLOT_W(tft.width());
@@ -34,7 +36,7 @@ static void computeGeometry(Adafruit_ILI9341 &tft) {
 }
 
 // Draw a stroke segment along an edge (horizontal)
-static void drawHSegment(Adafruit_ILI9341 &tft, int x0, int x1, int y, uint16_t color) {
+static void drawHSegment(TFT_eSPI &tft, int x0, int x1, int y, uint16_t color) {
     if (x1 < x0) return;
     tft.drawFastHLine(x0, y, x1 - x0 + 1, color);
     for (int i = 1; i < SLOT_PROGRESS_THICKNESS; ++i) {
@@ -43,7 +45,7 @@ static void drawHSegment(Adafruit_ILI9341 &tft, int x0, int x1, int y, uint16_t 
 }
 
 // Vertical segment
-static void drawVSegment(Adafruit_ILI9341 &tft, int x, int y0, int y1, uint16_t color) {
+static void drawVSegment(TFT_eSPI &tft, int x, int y0, int y1, uint16_t color) {
     if (y1 < y0) return;
     tft.drawFastVLine(x, y0, y1 - y0 + 1, color);
     for (int i = 1; i < SLOT_PROGRESS_THICKNESS; ++i) {
@@ -52,7 +54,7 @@ static void drawVSegment(Adafruit_ILI9341 &tft, int x, int y0, int y1, uint16_t 
 }
 
 // Arc segment: clockwise quarter arc from startAngle to endAngle (radians), centered at cx,cy
-static void drawArcSegment(Adafruit_ILI9341 &tft, int cx, int cy, float startRad, float endRad, uint16_t color) {
+static void drawArcSegment(TFT_eSPI &tft, int cx, int cy, float startRad, float endRad, uint16_t color) {
     float step = 57.2957795f / (float)g_slotR; // ~deg per pixel
     float startDeg = startRad * 57.2957795f;
     float endDeg = endRad * 57.2957795f;
@@ -73,7 +75,7 @@ static void drawArcSegment(Adafruit_ILI9341 &tft, int cx, int cy, float startRad
 }
 
 // Advance drawing from lastLength toward targetLength.
-static void drawProgressDelta(Adafruit_ILI9341 &tft, float targetLength, uint16_t color) {
+static void drawProgressDelta(TFT_eSPI &tft, float targetLength, uint16_t color) {
     if (targetLength <= g_lastLengthDrawn) return;
     // Segment ordering definitions (linear lengths):
     float straightTop = g_slotW - 2.0f * g_slotR;
@@ -208,7 +210,7 @@ static void drawProgressDelta(Adafruit_ILI9341 &tft, float targetLength, uint16_
     g_lastLengthDrawn = L;
 }
 
-void slotProgressUpdate(Adafruit_ILI9341 &tft, const TimerController &timer) {
+void slotProgressUpdate(TFT_eSPI &tft, const TimerController &timer) {
     if (g_totalMs <= 0) return;
     computeGeometry(tft); // cheap calculations, ok each frame
     unsigned long now = millis();
@@ -217,6 +219,6 @@ void slotProgressUpdate(Adafruit_ILI9341 &tft, const TimerController &timer) {
     float percent = (float)elapsed / (float)g_totalMs;
     if (percent < 0) percent = 0; if (percent > 1) percent = 1;
     float targetLength = percent * g_perimeter;
-    uint16_t color = timer.isFocus() ? COLOR_FOCUS_DARK : COLOR_BREAK_DARK; // darker stroke variants
+    uint16_t color = COLOR_TIMER_TEXT;
     drawProgressDelta(tft, targetLength, color);
 }

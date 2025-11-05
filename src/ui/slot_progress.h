@@ -1,5 +1,5 @@
 #pragma once
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
 #include "ui_design.h"
 #include "core/timer_controller.h"
 
@@ -8,4 +8,4 @@
 
 void slotProgressReset();
 void slotProgressStart(int totalSeconds);
-void slotProgressUpdate(Adafruit_ILI9341 &tft, const TimerController &timer);
+void slotProgressUpdate(TFT_eSPI &tft, const TimerController &timer);

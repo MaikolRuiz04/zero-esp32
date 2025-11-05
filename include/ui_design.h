@@ -1,3 +1,5 @@
+#define COLOR_SLOT_PROGRESS_FOCUS 0x4208 // Much darker khaki (darker from 0xB531)
+#define COLOR_SLOT_PROGRESS_BREAK 0x3907 // Much darker chestnut (darker from 0xA1E5)
 #pragma once
 // UI Design Constants
 
@@ -15,15 +17,16 @@
 #define COLOR_BG 0x0000          // Black background reverted
 #define COLOR_FOCUS 0x96BC       // Light blue fill for focus
 #define COLOR_BREAK 0xDD57       // Pink fill for break
-#define COLOR_SLOT  0x0000       // Fallback slot coloring (matches background)
+#define COLOR_SLOT_FOCUS  COLOR_ACCENT_OCHRE // Khaki for focus slot
+#define COLOR_SLOT_BREAK  COLOR_ACCENT_DUSTY_RED // Chestnut for break slot
 #define COLOR_ACCENT_OCHRE 0xB531 // Khaki accent
 #define COLOR_ACCENT_DUSTY_RED 0xA1E5 // Chestnut accent (may be used elsewhere)
 #define COLOR_TIMER_TEXT 0xEFBD  // Anti-flash white for timer digits
 
 // Darker variants for progress perimeter strokes (slightly darkened versions)
 // Derived by reducing RGB components ~20% before 565 conversion (approximation)
-#define COLOR_FOCUS_DARK 0x7D7A   // Darker blue stroke
-#define COLOR_BREAK_DARK 0xC4F3   // Darker pink stroke
+#define COLOR_FOCUS_DARK 0x4A52   // Much darker blue stroke
+#define COLOR_BREAK_DARK 0x824B   // Much darker pink stroke
 
 
 // Aliases for UI elements
