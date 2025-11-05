@@ -18,7 +18,7 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 | Performance | Bounded pixel work per frame; minimal full-screen redraws |
 | Customization | Palette, fonts, thickness macros centralized in `ui_design.h` |
 | Audio | Non‑blocking buzzer (short beep focus, double beep break) |
-| Testing | Host (`native_test`) & device (`esp32dev`) environments |
+| Testing | Removed in 0.16 (manual inspection only) |
 | Debounce | Timestamp-based button debounce (300 ms) |
 | Maintainability | Modules: core, system, ui; reduced globals |
 
@@ -36,7 +36,7 @@ ESP32 + ILI9341 Pomodoro timer featuring a perimeter slot progress animation, mo
 | `src/system/statistics.*` | Persistent focus/break minutes & cycles |
 | `include/` | Shared public headers (constants, cross‑module interfaces) |
 | `lib/` | (Optional) Private libraries if feature sets grow large |
-| `test/` | Unity tests (device + host) |
+| `test/` | (Removed in 0.16) |
 
 ## Runtime Flow
 1. Startup: load settings & statistics; draw taskbar and timer; start perimeter progress cycle.
